@@ -102,6 +102,10 @@ for record in data:
 为了便捷, 将 `hobbies` 数据以一种易于处理的形式写出进文件. 这里, 每行 CSV 数据采用 `同学姓名, 同学 ID, 爱好` 的形式.
 
 ```python
+# rows 列表格式示例:
+# rows = \
+#   [{'id': 123, 'name': '小明', 'likes': '游泳'}]
+
 rows = []
 
 for person in data:
@@ -137,7 +141,68 @@ MERGE (hobby:Hobby {name: row.likes})
 MERGE (p)-[r:LIKES]->(hobby)
 ```
 
+也可以采用 Python 语言来更好的集成化数据的处理和导入流程. 这里采用 [Py2neo][py2neo] 进行对 Neo4j 的访问和数据导入 [^py2neo-intro].
+
+使用 pip 安装 [Py2neo][py2neo]:
+
+```console
+$ python3 -m pip install py2neo
+```
+
+操作 Neo4j 数据库:
+
+```python
+from py2neo import Graph, Node, Relationship, Subgraph
+
+# 连接到数据库
+g = Graph('http://localhost:7474', auth=("neo4j", "123456"))
+
+# 先在 Python 中创建好带写入图的节点及关系, 最后统一提交
+
+# 先创建节点和关系
+person_nodes_of = dict()    # 按 Person ID 索引
+hobby_nodes_of = dict()     # 按爱好名字索引
+relationships = []          # 存储创建的关系
+
+for entry in rows:
+    person_id = entry['id']
+    person_name = entry['name']
+    hobby_name = entry['likes']
+
+    # 未尚未创建对应节点的 Person 创建节点
+    if person_id not in person_nodes_of.keys():
+        person_nodes_of[person_id] = \
+            Node('Person', name=person_name, id=person_id)
+
+    # 未尚未创建对应节点的 Person 创建节点
+    if hobby_name not in hobby_nodes_of.keys():
+        hobby_nodes_of[hobby_name] = \
+            Node('Hobby', name=hobby_name)
+    
+    # 创建 Person 与 Hobby 之间的关系
+    relationships.append(
+        Relationship(
+            person_nodes_of[person_id],
+            'LIKES', 
+            hobby_nodes_of[hobby_name],
+        )
+    )
+
+# 最后根据这些节点和关系创建子图, 并提交
+
+nodes = [person_nodes_of.values()] + [hobby_nodes_of.values()]
+subgraph = Subgraph(nodes, relationships)
+                        
+tx = g.begin()          # 开始事务
+tx.create(subgraph)     # 执行图创建操作   
+g.commit(tx)            # 提交
+```
+
+[py2neo]: https://py2neo.org/
+
 ### 使用 Cypher 语句进行数据查询
+
+成功写入到数据库之后, 便可以利用图数据库的优势, 轻松地对数据进行查询和探索等操作.
 
 类似于用于查询关系数据库的 SQL 语言, 用户可以使用 Cypher 语言对图数据库进行增删改查 [^cypher-intro].
 
@@ -165,12 +230,14 @@ MATCH (p:Person {name:'小明'})-[:LIKES]->(:Hobby)<-[:LIKES]-(pp:Person)
 RETURN pp
 ```
 
-查询拥有的爱好
+查询某人拥有的爱好
 
 ```cypher
 MATCH (p:Person {name:'小明'})-[:LIKES]-(hobbies:Hobby)
 RETURN hobbies
 ```
+
+![result diagram of querying one's hobbies](./assets/query-one-s-hobbies.svg)
 
 #### 查询节点及之间关系
 
@@ -180,6 +247,8 @@ RETURN hobbies
 MATCH q=(p:Person {name:'小明'})-[:LIKES]-(hobbies:Hobby)
 RETURN q
 ```
+
+![result diagram of querying someone with their hobbies](./assets//query-someone-with-their-hobbies.svg)
 
 查询拥有共同爱好的人
 
@@ -197,3 +266,5 @@ RETURN q
 [^cypher-intro]: 参见 [Getting Started with Cypher - Developer Guides - Neo4j](https://neo4j.com/developer/cypher/intro-cypher/)
 
 [^neo4j-csv-import]: 参见 [Importing CSV Data into Neo4j - Developer Guides - Neo4j](https://neo4j.com/developer/guide-import-csv/)
+
+[^py2neo-intro]: 参见 [Using Neo4j from Python - Developer Guides](https://neo4j.com/developer/python/#py2neo-lib)
