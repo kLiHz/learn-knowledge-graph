@@ -16,13 +16,15 @@
 
 Neo4j 是一个高性能的图形数据库, 它将结构化数据存储在网络上而不是表中. Neo4j 也可以被看作是一个高性能的图引擎, 该引擎具有成熟数据库的所有特性. 程序员工作在一个面向对象的, 灵活的网络结构下, 而不是严格, 静态的表中, 而可以享受到具备完全的事务特性的企业级的数据库的所有好处. Neo4j 因其嵌入式, 高性能, 轻量级等优势, 越来越受到关注。
 
-在图中涉及到两种基本的数据类型: Node (节点) 和 Relationship (关系). 在 Neo4j 中, Node 和 Relationship 均可以包含键值对 (key/value) 形式的属性. Node 由 Relationship 所定义的关系连结起来, 形成关系型网络结构.
+在图中涉及到两种基本的数据类型: Node (节点) 和 Relationship (关系). 在 Neo4j 中, Node 和 Relationship 均可以包含键值对 (key/value) 形式的属性. Node 由 Relationship 所定义的关系连结起来, 形成关系型网络结构. [^what-is-graph-db]
 
 安装 Neo4j 需要注意使用对应版本要求的 JDK 版本.
 
 ### 图数据库的构建
 
-实验的目标是构建同学兴趣爱好数据库. 根据分析可得, 应对 "同学" 和 "爱好" 这两个实体进行建模, "同学的爱好" 使用 "同学 (Person)" 和 "爱好 (Hobby)" 之间的关系进行表示.
+实验的目标是构建同学兴趣爱好数据库. 根据分析可得, 应对 "同学" 和 "爱好" 这两个实体进行建模, "同学的爱好" 使用 "同学 (Person)" 和 "爱好 (Hobby)" 之间的关系进行表示. [^graph-modeling]
+
+这样的表示方式, 具有共同爱好的同学之间将通过一个 "爱好" 节点进行关联, 且不会产生重复数据, 也便于对数据进行增删改查.
 
 #### 原始数据的分析与整理
 
@@ -95,7 +97,7 @@ for record in data:
 
 #### 导入到 Neo4j 数据库
 
-本次实验中, 采用 CSV 文件导入的方式创建节点与关系.
+本次实验中, 采用 CSV 文件导入的方式创建节点与关系. [^neo4j-csv-import]
 
 为了便捷, 将 `hobbies` 数据以一种易于处理的形式写出进文件. 这里, 每行 CSV 数据采用 `同学姓名, 同学 ID, 爱好` 的形式.
 
@@ -125,6 +127,8 @@ with open('hobbies-for-import.csv', 'w') as f:
 
 之后, 需要先将 CSV 文件放入 Neo4j 安装目录下的 `import` 目录中, 才能够在 Cypher 语句中使用 `file:///` 访问文件.
 
+需要有一些 Cypher 语言的基础 [^cypher-intro].
+
 ```cypher
 LOAD CSV WITH HEADERS FROM 'file:///hobbies-for-import.csv' AS row 
 MERGE (p:Person {name: row.name, id: row.id}) 
@@ -134,6 +138,8 @@ MERGE (p)-[r:LIKES]->(hobby)
 ```
 
 ### 使用 Cypher 语句进行数据查询
+
+类似于用于查询关系数据库的 SQL 语言, 用户可以使用 Cypher 语言对图数据库进行增删改查 [^cypher-intro].
 
 #### 查询结点
 
@@ -184,7 +190,10 @@ RETURN q
 
 ## 参考资料
 
-- [What is a Graph Database? - Developer Guides - Neo4j](https://neo4j.com/developer/graph-database/)
-- [Graph Modeling Guidelines - Developer Guides - Neo4j](https://neo4j.com/developer/guide-data-modeling/)
-- [Getting Started with Cypher - Developer Guides - Neo4j](https://neo4j.com/developer/cypher/intro-cypher/)
-- [Importing CSV Data into Neo4j - Developer Guides - Neo4j](https://neo4j.com/developer/guide-import-csv/)
+[^what-is-graph-db]: 参见 [What is a Graph Database? - Developer Guides - Neo4j](https://neo4j.com/developer/graph-database/)
+
+[^graph-modeling]: 参见 [Graph Modeling Guidelines - Developer Guides - Neo4j](https://neo4j.com/developer/guide-data-modeling/)
+
+[^cypher-intro]: 参见 [Getting Started with Cypher - Developer Guides - Neo4j](https://neo4j.com/developer/cypher/intro-cypher/)
+
+[^neo4j-csv-import]: 参见 [Importing CSV Data into Neo4j - Developer Guides - Neo4j](https://neo4j.com/developer/guide-import-csv/)
