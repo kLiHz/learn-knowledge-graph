@@ -3,11 +3,11 @@ import csv
 import time
 import os.path
 
-inFilename = 'D:/temp/ownthink_v2.csv'
+inFilename = 'D:/temp/ownthink_v2/ownthink_v2.csv'
 
 entitiesFileName = './entities-{}.csv'
 porpertiesAsValue = ['描述']
-entitiesFieldNames = ['name:ID', ':LABEL'] + porpertiesAsValue
+entitiesFieldNames = ['name:ID'] + porpertiesAsValue
 
 relationsFileName = './relations-{}.csv'
 relationsFieldNames = [':START_ID', ':END_ID', ':TYPE']
@@ -66,7 +66,7 @@ if os.path.exists(lastProcessingPosFileName):
     with open(lastProcessingPosFileName, 'r') as f:
         contents = f.read()
     lineProcessedCount = int(contents)
-    with open(entitySetFileName, 'r') as f:
+    with open(entitySetFileName, 'r', newline='') as f:
         entitySet.load_from_file(f)
 else:
     lineProcessedCount = 0
@@ -86,48 +86,56 @@ with GracefulInterruptHandler() as h:
     relationsWriter = csv.DictWriter(outRelationsFile, dialect='excel', fieldnames=relationsFieldNames)
     relationsWriter.writeheader()
 
-    with open(inFilename, 'r') as f:
+    with open(inFilename, 'r', newline='') as f:
         print('Start processing.')
 
         reader = csv.DictReader(f, dialect='excel')
         
         skipLines = lineProcessedCount
         while skipLines > 0:
-            reader.__next__()
-            skipLines -= 1
+            try:
+                reader.__next__()
+            except:
+                print(f'Error at line: {reader.line_num}')
+            finally:
+                skipLines -= 1
         
-        for tuple in reader:
-            entityName = tuple['实体']
-            porpertyName = tuple['属性']
-            value = tuple['值']
-            if porpertyName in porpertiesAsValue:
-                entitiesWriter.writerow({
-                    'name:ID': entityName,
-                    ':LABEL': 'Entity',
-                    porpertyName: value,
-                })
-            else:
-                eid = entitySet.get(value)
-                # l = []
-                # if '标签' in porpertyName:
-                #     l += 'Tag'
-                # if '地区' in porpertyName:
-                #     l += 'Reigon'
-                # entitySet.add_label_for_id(eid, l)
-                relationsWriter.writerow({
-                    ':START_ID': entityName,
-                    ':END_ID': eid,
-                    ':TYPE': porpertyName,
-                })
-            lineProcessedCount += 1
-
-            if lineProcessedCount % 100000 == 0:
-                print(f'Processed {lineProcessedCount} lines.')
-
-            if h.interrupted:
-                print('Keyboard Interrupt')
-                print(f'Processed {lineProcessedCount} lines.')
+        while True:
+            try:
+                tuple = reader.__next__()
+                entityName = tuple['实体']
+                porpertyName = tuple['属性']
+                value = tuple['值']
+                if porpertyName in porpertiesAsValue:
+                    entitiesWriter.writerow({
+                        'name:ID': entityName,
+                        porpertyName: value,
+                    })
+                else:
+                    eid = entitySet.get(value)
+                    # l = []
+                    # if '标签' in porpertyName: l += 'Tag'
+                    # if '地区' in porpertyName: l += 'Reigon'
+                    # entitySet.add_label_for_id(eid, l)
+                    relationsWriter.writerow({
+                        ':START_ID': entityName,
+                        ':END_ID': eid,
+                        ':TYPE': porpertyName,
+                    })
+            except StopIteration:
                 break
+            except:
+                print(f'Error at line: {reader.line_num}')
+            finally:
+                lineProcessedCount += 1
+
+                if lineProcessedCount % 100000 == 0:
+                    print(f'Processed {lineProcessedCount} lines.')
+
+                if h.interrupted:
+                    print('Keyboard Interrupt')
+                    print(f'Processed {lineProcessedCount} lines.')
+                    break
         
         print('Saving lines count...')
         with open(lastProcessingPosFileName, 'w') as f:
