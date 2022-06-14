@@ -7,7 +7,7 @@ inFilename = 'D:/temp/ownthink_v2/ownthink_v2.csv'
 
 entitiesFileName = './entities-{}.csv'
 porpertiesAsValue = ['描述']
-entitiesFieldNames = ['name:ID(nId)'] + porpertiesAsValue
+entitiesFieldNames = [':ID(nId)', 'name'] + porpertiesAsValue
 
 relationsFileName = './relations-{}.csv'
 relationsFieldNames = [':START_ID(nId)', ':END_ID(eId)', ':TYPE']
@@ -102,17 +102,18 @@ with GracefulInterruptHandler() as h:
 
         reader = csv.DictReader(f, dialect='excel')
         
-        lastReadn = { 'name:ID(nId)': None }
+        lastReadn = { ':ID(nId)': 0, 'name': None }
         
         skipLines = lineProcessedCount
         while skipLines > 0:
             try:
                 t = reader.__next__()
                 
-                if lastReadn['name:ID(nId)'] != t['实体']:
-                    del lastReadn
-                    lastReadn = dict()
-                    lastReadn['name:ID(nId)'] = t['实体']
+                if lastReadn['name'] != t['实体']:
+                    lastReadn = {
+                        ':ID(nId)': lastReadn[':ID(nId)'] + 1,
+                        'name': t['实体'],
+                    }
                 
                 if t['属性'] in porpertiesAsValue:
                     lastReadn[t['属性']] = t['值']
@@ -134,11 +135,12 @@ with GracefulInterruptHandler() as h:
                 if porpertyName == '' or value == '':
                     continue
 
-                if entityName != lastReadn['name:ID(nId)']:
+                if entityName != lastReadn['name']:
                     entitiesWriter.writerow(lastReadn)
-                    del lastReadn
-                    lastReadn = dict()
-                    lastReadn['name:ID(nId)'] = entityName
+                    lastReadn = {
+                        ':ID(nId)': lastReadn[':ID(nId)'] + 1,
+                        'name': entityName,
+                    }
 
                 if porpertyName in porpertiesAsValue:
                     lastReadn[porpertyName] = value
@@ -150,7 +152,7 @@ with GracefulInterruptHandler() as h:
                     entitySet.add_label_for_id(eid, l)
 
                     relationsWriter.writerow({
-                        ':START_ID(nId)': entityName,
+                        ':START_ID(nId)': lastReadn[':ID(nId)'],
                         ':END_ID(eId)': eid,
                         ':TYPE': porpertyName,
                     })
