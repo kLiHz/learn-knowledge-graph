@@ -7,13 +7,13 @@ inFilename = 'D:/temp/ownthink_v2/ownthink_v2.csv'
 
 entitiesFileName = './entities-{}.csv'
 porpertiesAsValue = ['描述']
-entitiesFieldNames = ['name:ID'] + porpertiesAsValue
+entitiesFieldNames = ['name:ID(nId)'] + porpertiesAsValue
 
 relationsFileName = './relations-{}.csv'
-relationsFieldNames = [':START_ID', ':END_ID', ':TYPE']
+relationsFieldNames = [':START_ID(nId)', ':END_ID(eId)', ':TYPE']
 
 entitySetFileName = './entitySet.csv'
-entitySetFieldNames = [':ID', 'name', ':LABEL']
+entitySetFieldNames = [':ID(eId)', 'name', ':LABEL']
 
 lastProcessingPosFileName = './reader-last-pos.txt'
 lineProcessedCount = 0
@@ -29,8 +29,8 @@ class EntitySet:
         csvReader = csv.DictReader(f, dialect='excel')
         self.cnt = 0
         for row in csvReader:
-            self.id_of[row['name']] = row[':ID']
-            self.label_of_id[row[':ID']] = row[':LABEL']
+            self.id_of[row['name']] = row[':ID(eId)']
+            self.label_of_id[row[':ID(eId)']] = row[':LABEL']
             self.cnt += 1
 
     def get(self, name):
@@ -54,7 +54,7 @@ class EntitySet:
         for name in self.id_of.keys():
             eid = self.id_of[name]
             csvWriter.writerow({
-                ':ID': eid,
+                ':ID(eId)': eid,
                 'name': name,
                 ':LABEL': self.label_of_id[eid],
             })
@@ -75,6 +75,17 @@ else:
 
 timestr = time.strftime("%Y%m%d-%H%M%S")
 
+
+labelMapper = {
+    '标签': 'Tag',
+    '文名': 'Name',
+    '别名': 'Name',
+    '又称': 'Name',
+    '地区': 'Reigon',
+    '作品': 'Work',
+    '职业': 'Job',
+}
+
 with GracefulInterruptHandler() as h:
 
     outEntitiesFile = open(entitiesFileName.format(timestr), 'w', newline='', encoding='utf-8')
@@ -91,10 +102,22 @@ with GracefulInterruptHandler() as h:
 
         reader = csv.DictReader(f, dialect='excel')
         
+        lastReadn = { 'name:ID(nId)': None }
+        
         skipLines = lineProcessedCount
         while skipLines > 0:
             try:
-                reader.__next__()
+                t = reader.__next__()
+                
+                if lastReadn['name:ID(nId)'] != t['实体']:
+                    del lastReadn
+                    lastReadn = dict()
+                    lastReadn['name:ID(nId)'] = t['实体']
+                
+                if t['属性'] in porpertiesAsValue:
+                    lastReadn[t['属性']] = t['值']
+                else:
+                    pass
             except:
                 print(f'Error at line: {reader.line_num}')
             finally:
@@ -103,26 +126,36 @@ with GracefulInterruptHandler() as h:
         while True:
             try:
                 tuple = reader.__next__()
+
                 entityName = tuple['实体']
                 porpertyName = tuple['属性']
                 value = tuple['值']
+
+                if porpertyName == '' or value == '':
+                    continue
+
+                if entityName != lastReadn['name:ID(nId)']:
+                    entitiesWriter.writerow(lastReadn)
+                    del lastReadn
+                    lastReadn = dict()
+                    lastReadn['name:ID(nId)'] = entityName
+
                 if porpertyName in porpertiesAsValue:
-                    entitiesWriter.writerow({
-                        'name:ID': entityName,
-                        porpertyName: value,
-                    })
+                    lastReadn[porpertyName] = value
                 else:
                     eid = entitySet.get(value)
-                    # l = []
-                    # if '标签' in porpertyName: l += 'Tag'
-                    # if '地区' in porpertyName: l += 'Reigon'
-                    # entitySet.add_label_for_id(eid, l)
+                    
+                    # Add Label for value Entities
+                    l = [ labelMapper[keyword] for keyword in labelMapper.keys() if keyword in porpertyName ]
+                    entitySet.add_label_for_id(eid, l)
+
                     relationsWriter.writerow({
-                        ':START_ID': entityName,
-                        ':END_ID': eid,
+                        ':START_ID(nId)': entityName,
+                        ':END_ID(eId)': eid,
                         ':TYPE': porpertyName,
                     })
             except StopIteration:
+                entitiesWriter.writerow(lastReadn)
                 break
             except:
                 print(f'Error at line: {reader.line_num}')
