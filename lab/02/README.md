@@ -8,8 +8,8 @@
 
 ## 实验环境
 
-1. Neo4j 4.4.3
-2. Python
+1. Neo4j 4.4.8
+2. Python 3.10
 
 ## 实验原理
 
@@ -20,7 +20,6 @@
 将 [下载][ownthink-v2] 得到的文件解压缩后, 得到 `ownthink_v2.csv`:
 
 [ownthink-v2]: http://openkg.cn/dataset/ownthink-v2
-
 
 查看知识图谱数据规模: 
 
@@ -95,6 +94,22 @@ PS> Get-Content "D:\temp\ownthink_v2.csv" -Last 10
 进出蛮荒五十年,歧义权重,1
 ```
 
+也可以不解压文件, 在 Python 中使用 [`zipfile`][zipfile] 模块直接打开文件.
+
+[zipfile]: https://docs.python.org/3/library/zipfile.html
+
+```python
+import zipfile
+zippedFileName = 'C:/Users/Henry/Downloads/ownthink_v2.zip'
+pwd = 'https://www.ownthink.com/'
+with zipfile.ZipFile(zippedFileName) as archive:
+    with archive.open('ownthink_v2.csv', pwd=bytes(pwd, encoding='utf-8')) as f:
+        lineCount = 0
+        for line in f:
+            lineCount += 1
+        print(lineCount)
+```
+
 ### 从 CSV 批量导入 Neo4j
 
 参照 [Neo4j `import` 工具操作指南][neo4j-import-manual], 有两种方式可以从 CSV 载入数据到 Neo4j 中: 命令行工具 `neo4j-admin import` 或者 Cypher 语句 `LOAD CSV`. 
@@ -144,7 +159,7 @@ PS> Get-Content "D:\temp\ownthink_v2.csv" -Last 10
 | tt0234215 | "The Matrix Reloaded"    | 2003 | Movie;Sequel |
 | tt0242653 | "The Matrix Revolutions" | 2003 | Movie;Sequel |
 
-描述实体关系的 CSV 文件中的每一项, 应指明起始节点 ID 和终到节点 ID:
+描述实体关系的 CSV 文件中的每一项, 应指明起始节点 ID 和终到节点 ID, 节点的类型 `:TYPE` 也必须指定:
 
 |**`:START_ID`**|**`:END_ID`**|**`:TYPE`**|
 |:-:|:-:|:-:|
@@ -278,6 +293,8 @@ $ grep -e '^藏族,' /mnt/d/temp/ownthink_v2/ownthink_v2.csv
 可见, 在实验过程中会遇到很多问题. 建议一边编写代码, 一边生成少量的数据进行试导入, 可以发现很多问题.
 
 考虑到大文件处理时间过长, 代码加入了一个简略的断点保存的功能 (不过可能用处不大, 实际上花费时间并不多). 实现功能的原理是捕捉 SIGINT 信号, 并通过异常处理完成存档.
+
+由于 Neo4j 还支持直接导入压缩文件, 为了减小空间占用, 可以直接写出压缩后的 CSV 文件.
 
 ### 导入 Neo4j 数据库
 
