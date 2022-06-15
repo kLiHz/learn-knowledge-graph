@@ -295,7 +295,7 @@ $ grep -e '^藏族,' /mnt/d/temp/ownthink_v2/ownthink_v2.csv
 PS> ./bin/neo4j-admin import --database="ownthink" `
     --nodes=Entity="import/entities-20220612-105728.csv" `
     --nodes=Entity="import/entitySet.csv" `
-    --relationships="import/relations-20220612-105728.csv" `
+    --relationships=Attrib="import/relations-20220612-105728.csv" `
     --multiline-fields=true `
     --skip-duplicate-nodes=true `
     --skip-bad-relationships=true `
