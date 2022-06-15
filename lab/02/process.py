@@ -10,7 +10,7 @@ porpertiesAsValue = ['描述']
 entitiesFieldNames = [':ID(nId)', 'name'] + porpertiesAsValue
 
 relationsFileName = './relations-{}.csv'
-relationsFieldNames = [':START_ID(nId)', ':END_ID(eId)', ':TYPE']
+relationsFieldNames = [':START_ID(nId)', ':END_ID(eId)', ':TYPE', 'AttribName']
 
 entitySetFileName = './entitySet.csv'
 entitySetFieldNames = [':ID(eId)', 'name', ':LABEL']
@@ -102,7 +102,7 @@ with GracefulInterruptHandler() as h:
 
         reader = csv.DictReader(f, dialect='excel')
         
-        lastReadn = { ':ID(nId)': 0, 'name': None }
+        lastReadn = { ':ID(nId)': 0, 'name': 'OwnThink', '描述': 'http://www.ownthink.com/' }
         
         skipLines = lineProcessedCount
         while skipLines > 0:
@@ -132,7 +132,7 @@ with GracefulInterruptHandler() as h:
                 porpertyName = tuple['属性']
                 value = tuple['值']
 
-                if porpertyName == '' or value == '':
+                if porpertyName == '' or value == '' or entityName == '':
                     continue
 
                 if entityName != lastReadn['name']:
@@ -154,7 +154,8 @@ with GracefulInterruptHandler() as h:
                     relationsWriter.writerow({
                         ':START_ID(nId)': lastReadn[':ID(nId)'],
                         ':END_ID(eId)': eid,
-                        ':TYPE': porpertyName,
+                        ':TYPE': 'Attrib',
+                        'AttribName': porpertyName,
                     })
             except StopIteration:
                 entitiesWriter.writerow(lastReadn)
