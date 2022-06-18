@@ -5,13 +5,14 @@ from configurations import *
 import os.path
 import csv
 
+
 class EntitySet:
-    
+
     def __init__(self):
         self.cnt = 0
         self.id_of = dict()
         self.label_of_id = dict()
-    
+
     def load_from_file(self, f):
         csvReader = csv.DictReader(f, dialect='excel')
         self.cnt = 0
@@ -28,13 +29,13 @@ class EntitySet:
             self.id_of[name] = self.cnt
             self.label_of_id[self.cnt] = 'Entity'
             return self.cnt
-    
+
     def add_label_for_id(self, entityID, label):
         self.label_of_id[entityID] = \
             ';'.join(
                 set(self.label_of_id[entityID].split(';') + label)
             )
-    
+
     def dump_to_file(self, f):
         csvWriter = csv.DictWriter(f, dialect='excel', fieldnames=entitySetFieldNames)
         csvWriter.writeheader()
@@ -67,13 +68,14 @@ def try_resume() -> Tuple[EntitySet, int]:
     return entitySet, lineProcessedCount
 
 
-def dict_write(reader:csv.DictReader, entitiesWriter:csv.DictWriter, relationsWriter:csv.DictWriter, entitySet:EntitySet, lineProcessedCount:int):
+def dict_write(reader: csv.DictReader, entitiesWriter: csv.DictWriter, relationsWriter: csv.DictWriter,
+               entitySet: EntitySet, lineProcessedCount: int):
     with GracefulInterruptHandler() as h:
         entitiesWriter.writeheader()
         relationsWriter.writeheader()
 
-        lastReadn = { ':ID(nId)': 0, 'name': 'OwnThink', '描述': 'http://www.ownthink.com/' }
-        
+        lastReadn = {':ID(nId)': 0, 'name': 'OwnThink', '描述': 'http://www.ownthink.com/'}
+
         print('Skipping processed lines...')
         skipLines = lineProcessedCount
         while skipLines > 0:
@@ -84,12 +86,12 @@ def dict_write(reader:csv.DictReader, entitiesWriter:csv.DictWriter, relationsWr
                 continue
             finally:
                 skipLines -= 1
-            
+
             entityName = t['实体']
-            porpertyName = t['属性']
+            propertyName = t['属性']
             value = t['值']
 
-            if value == '' or entityName == '' or porpertyName == '':
+            if value == '' or entityName == '' or propertyName == '':
                 continue
 
             if lastReadn['name'] != entityName:
@@ -97,20 +99,21 @@ def dict_write(reader:csv.DictReader, entitiesWriter:csv.DictWriter, relationsWr
                     ':ID(nId)': lastReadn[':ID(nId)'] + 1,
                     'name': entityName,
                 }
-            
-            if porpertyName in porpertiesAsValue:
-                lastReadn[porpertyName] = value
-            
+
+            if propertyName in propertiesAsValue:
+                lastReadn[propertyName] = value
+
             if h.interrupted:
                 break
-        
-        if h.interrupted: return lineProcessedCount
+
+        if h.interrupted:
+            return lineProcessedCount
         else:
             print('Skipping completed.')
 
         while True:
             try:
-                tuple = reader.__next__()
+                t = reader.__next__()
             except StopIteration:
                 entitiesWriter.writerow(lastReadn)
                 break
@@ -120,11 +123,11 @@ def dict_write(reader:csv.DictReader, entitiesWriter:csv.DictWriter, relationsWr
             finally:
                 lineProcessedCount += 1
 
-            entityName = tuple['实体']
-            porpertyName = tuple['属性']
-            value = tuple['值']
+            entityName = t['实体']
+            propertyName = t['属性']
+            value = t['值']
 
-            if porpertyName == '' or value == '' or entityName == '':
+            if propertyName == '' or value == '' or entityName == '':
                 continue
 
             if entityName != lastReadn['name']:
@@ -134,20 +137,20 @@ def dict_write(reader:csv.DictReader, entitiesWriter:csv.DictWriter, relationsWr
                     'name': entityName,
                 }
 
-            if porpertyName in porpertiesAsValue:
-                lastReadn[porpertyName] = value
+            if propertyName in propertiesAsValue:
+                lastReadn[propertyName] = value
             else:
                 eid = entitySet.get(value)
-                
+
                 # Add Label for value Entities
-                l = [ labelMapper[keyword] for keyword in labelMapper.keys() if keyword in porpertyName ]
+                l = [labelMapper[keyword] for keyword in labelMapper.keys() if keyword in propertyName]
                 entitySet.add_label_for_id(eid, l)
 
                 relationsWriter.writerow({
                     ':START_ID(nId)': lastReadn[':ID(nId)'],
                     ':END_ID(eId)': eid,
                     ':TYPE': 'Attrib',
-                    'AttribName': porpertyName,
+                    'AttribName': propertyName,
                 })
 
             if lineProcessedCount % 100000 == 0:
@@ -157,7 +160,7 @@ def dict_write(reader:csv.DictReader, entitiesWriter:csv.DictWriter, relationsWr
                 print('Keyboard Interrupt')
                 print(f'Processed {lineProcessedCount} lines.')
                 break
-        
+
         return lineProcessedCount
 
 

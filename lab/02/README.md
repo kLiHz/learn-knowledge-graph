@@ -21,20 +21,26 @@
 
 [ownthink-v2]: http://openkg.cn/dataset/ownthink-v2
 
-查看知识图谱数据规模: 
+#### 查看知识图谱数据规模
+
+(统计文章行数): 
 
 Bash:
 
-```bash
+```console
 $ wc -l ~/ownthink_v2.csv
 140919781 /home/henry/ownthink_v2.csv
 ```
 
 PowerShell:
 
+法 1: 使用带 `-ReadCount` 参数的 `Get-Content`
+
 ```powershell
 PS> Get-Content "D:\temp\ownthink_v2.csv" -ReadCount 1000 | Measure-Object -Line
 ```
+
+法 2: 使用 `StreamReader` 流式处理
 
 ```powershell
 $testFile = "D:\temp\ownthink_v2.csv"
@@ -46,6 +52,8 @@ if ($reader) {
 }
 Write-Output $count
 ```
+
+法 3: 使用 `switch` 命令
 
 ```powershell
 $count = 0 
@@ -60,11 +68,11 @@ Write-Output $count
 
 
 
-查看知识图谱数据内容:
+#### 查看知识图谱数据内容
 
 Bash (文件前 10 行):
 
-```bash
+```console
 $ head ownthink_v2.csv
 实体,属性,值
 胶饴,描述,别名: 饴糖、畅糖、畅、软糖。
@@ -120,7 +128,9 @@ with zipfile.ZipFile(zippedFileName) as archive:
 
 而使用 `LOAD CSV` 可以导入中等大小的 CSV 文件到任一已经存在的数据库中, 可以被执行多次, 也不要求待导入的数据库非空.
 
-由于 `neo4j-admin` 中的 `import` 命令所导入的是未在使用中的空数据库, 其导入数据的速度往往更快.
+由于 `neo4j-admin` 中的 `import` 命令所导入的是未在使用中的空数据库, 其导入数据的速度往往更快. 详情可参考 [Neo4j Admin import][neo4j-admin-import-manual].
+
+[neo4j-admin-import-manual]: https://neo4j.com/docs/operations-manual/current/tutorial/neo4j-admin-import/ "Neo4j Admin import - Operations Manual"
 
 待导入的 CSV 文件需要有以下要求:
 
@@ -147,23 +157,23 @@ with zipfile.ZipFile(zippedFileName) as archive:
 
 参考格式:
 
-|**`:ID`**|`name`|**`:LABEL`**|
-|:-|:-|:-|
-|`<实体 ID>`| `<实体 'name' 属性值>` | `<实体标签>` |
+|`:ID`|`name`| `:LABEL` |
+|:---|:---|:-------------|
+|`<实体 ID>`| `<实体 'name' 属性值>` | `<实体标签>`     |
 
 参考示例:
 
-|**`movieID:ID`**|`title`|`year:int`|**`:LABEL`**|
-|:-|:-|:-|:-|
+|`movieID:ID`|`title`|`year:int`| `:LABEL` |
+|:---|:---|:---|:-------------|
 | tt0133093 | "The Matrix"             | 1999 | Movie        |
 | tt0234215 | "The Matrix Reloaded"    | 2003 | Movie;Sequel |
 | tt0242653 | "The Matrix Revolutions" | 2003 | Movie;Sequel |
 
 描述实体关系的 CSV 文件中的每一项, 应指明起始节点 ID 和终到节点 ID, 节点的类型 `:TYPE` 也必须指定:
 
-|**`:START_ID`**|**`:END_ID`**|**`:TYPE`**|
-|:-:|:-:|:-:|
-|`<起始节点的 ID>`| `<终到节点的 ID>` | `<关系的类型>` |
+| `:START_ID`  |`:END_ID`| `:TYPE` |
+|:-------------|:---|:------------|
+| `<起始节点的 ID>` | `<终到节点的 ID>` | `<关系的类型>`   |
 
 ### 设计格式转换方式
 
@@ -218,7 +228,7 @@ OwnThink 数据库的标头为 `实体,属性,值`, 但是为了将节点关联�
 
 在实际过程中, 遇到其中一行中含有 `\x00` NULL 空字节 (`_csv.Error: line contains NUL`) [^ownthink-gh-issue], 影响了 `csv.DictReader` 的读取:
 
-```python
+```python-repl
 >>> with open('D:/temp/ownthink_v2/ownthink_v2.csv', 'r') as f:
 ...   i = 1
 ...   while i < 9929228:
@@ -232,6 +242,40 @@ OwnThink 数据库的标头为 `实体,属性,值`, 但是为了将节点关联�
 ```
 
 由于文件中含有空字节的地方较少, 因此在处理的代码中加入了异常处理. 如若问题较多, 则考虑对文件进行预处理.
+
+通常对于 `csv.Reader` 是直接使用 `for` 循环进行迭代, 但是因为异常可能发生在每次迭代, 因而不能对整个循环体进行异常处理. 
+故采用 `while True` 和 `__next()__` 组合的方式:
+
+```python
+def foo(val: int) -> str:
+    if val in [1, 3, 5]:
+        raise ValueError()
+    else:
+        return f'{val}'
+
+
+gen = map(foo, [1, 2, 3, 4, 5])
+cnt = 0
+
+while True:
+    try:
+        s = gen.__next__()
+    except ValueError:
+        # If encounters exceptions
+        print(f'Oops! Exception at No. {cnt + 1}.')
+        continue
+    except StopIteration:
+        # If iteration reaches the end:
+        break
+    finally:
+        # Count in the 'finally' block:
+        cnt += 1
+
+    # Do something with s
+    print('Got: ', s)
+
+print(f'Processed {cnt - 1} objects.')
+```
 
 此外, 由于最初没有考虑周到, 导致实体和 "值" 的 ID 有冲突的现象: 比如为 "值" 节点分配的 ID "9" 和名为 "9" 的实体 (其 ID 也为 '9'). 这里采用了 Neo4j 提供的 ID 命名空间 (ID Spaces) 的方法解决冲突的问题.
 
@@ -252,7 +296,7 @@ more import.report
 
 定位并确认 `entitySet.csv` 中对应 ID 的内容:
 
-```python
+```python-repl
 >>> with open('./import/entitySet.csv') as f:
 ...   cnt = 0
 ...   for line in f:
@@ -295,6 +339,7 @@ $ grep -e '^藏族,' /mnt/d/temp/ownthink_v2/ownthink_v2.csv
 考虑到大文件处理时间过长, 代码加入了一个简略的断点保存的功能 (不过可能用处不大, 实际上花费时间并不多). 实现功能的原理是捕捉 SIGINT 信号, 并通过异常处理完成存档.
 
 由于 Neo4j 还支持直接导入压缩文件, 为了减小空间占用, 可以直接写出压缩后的 CSV 文件.
+不过经过实际测试, 不管以压缩形式进行读取还是写出, 都会造成明显的效率下降.
 
 ### 导入 Neo4j 数据库
 
@@ -330,7 +375,7 @@ PS> ./bin/neo4j-admin import --database="ownthink" `
 PS> ./bin/neo4j-admin import --database="ownthink" `
     --nodes=Entity="import/entities.csv" `
     --nodes=Entity="import/entitySet.csv" `
-    --relationships="import/relations-header.csv,import/relations.csv" `
+    --relationships=Attrib="import/relations-header.csv,import/relations.csv" `
     --multiline-fields=true `
     --skip-duplicate-nodes=true `
     --skip-bad-relationships=true `
@@ -345,10 +390,14 @@ PS> ./bin/neo4j-admin import --database="ownthink" `
 
 1. 打开 Neo4j 安装目录下的 `NEO4J_HOME\conf\neo4j.conf` 文件;
 2. 取消 `dbms.default_database=neo4j` 的注释;
-1. 将 `neo4j` 改为新数据库要使用的名称 (长度在 3 ~ 63 个字符之间), 比如 `dbms.default_database=mydatabase`;
+3. 将 `neo4j` 改为新数据库要使用的名称 (长度在 3 ~ 63 个字符之间), 比如 `dbms.default_database=mydatabase`;
 4. 保存文件;
 5. 重启 Neo4j 服务器以及 Web UI;
-7. 之后再打开 Neo4j 的页面, 默认的 "neo4j" 数据库和新创建的数据库都会出现, 但是不能切换; 如需切换, 需要重复第 3 步.
+6. 之后再打开 Neo4j 的页面, 默认的 "neo4j" 数据库和新创建的数据库都会出现, 但是不能切换; 如需切换, 需要重复第 3 步.
+
+### 查看导入结果
+
+由于尚未建立索引, 查询速度会很慢.
 
 ## 实验心得
 
