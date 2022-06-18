@@ -1,8 +1,8 @@
 inFilename = 'D:/temp/ownthink_v2/ownthink_v2.csv'
 
 entitiesFileName = './entities-{}.csv'
-porpertiesAsValue = ['描述']
-entitiesFieldNames = [':ID(nId)', 'name'] + porpertiesAsValue
+propertiesAsValue = ['描述']
+entitiesFieldNames = [':ID(nId)', 'name'] + propertiesAsValue
 
 relationsFileName = './relations-{}.csv'
 relationsFieldNames = [':START_ID(nId)', ':END_ID(eId)', ':TYPE', 'AttribName']
